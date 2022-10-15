@@ -1,0 +1,84 @@
+provider "aws" {
+  region = var.aws_region
+  access_key = var.aws_access_key
+  secret_key = var.aws_secret_key
+}
+variable "aws_region" {}
+variable "aws_access_key" {}
+variable "aws_secret_key" {}
+variable "myvpc_cidr" {}
+variable "mysubnet_cidr" {}
+variable "myzone" {}
+variable "route_cidr" {}
+variable "cidr_for_security" {}
+variable "ami" {}
+variable "type" {}
+variable "public_ip" {}
+variable "security_group_name" {}
+variable "from_port" {}
+variable "to_port" {}
+variable "protocol" {}
+variable "number" {}
+
+resource "aws_vpc" "my_vpc" {
+  cidr_block = var.myvpc_cidr
+  tags       = {
+    name = "my_vpc"
+  }
+}
+resource "aws_subnet" "my_subnet" {
+  cidr_block = var.mysubnet_cidr
+  vpc_id = aws_vpc.my_vpc.id
+  availability_zone = var.myzone
+  tags = {
+    name = "my_subnet"
+  }
+}
+resource "aws_internet_gateway" "my_gateway" {
+  vpc_id = aws_vpc.my_vpc.id
+  tags = {
+    name = "my_gateway"
+  }
+}
+resource "aws_route_table" "my_route_table" {
+  vpc_id = aws_vpc.my_vpc.id
+  route {
+    cidr_block = var.route_cidr
+    gateway_id = aws_internet_gateway.my_gateway.id
+  }
+  tags = {
+    name = "my_route_table"
+  }
+}
+resource "aws_route_table_association" "my_association" {
+  route_table_id = aws_route_table.my_route_table.id
+  subnet_id = aws_subnet.my_subnet.id
+}
+resource "aws_security_group" "my_security" {
+  name = var.security_group_name
+  vpc_id = aws_vpc.my_vpc.id
+  ingress {
+    from_port = var.from_port
+    protocol  = var.protocol
+    to_port   = var.to_port
+    cidr_blocks = [var.cidr_for_security]
+  }
+  egress {
+    from_port = var.from_port
+    protocol  = var.protocol
+    to_port   = var.to_port
+    cidr_blocks = [var.cidr_for_security]
+  }
+}
+resource "aws_instance" "my_instance" {
+  ami = var.ami
+  count = var.number
+  instance_type = var.type
+  availability_zone = var.myzone
+  subnet_id         = aws_subnet.my_subnet.id
+  vpc_security_group_ids = [aws_security_group.my_security.id]
+  associate_public_ip_address = var.public_ip
+  tags = {
+    name = "my_instance"
+  }
+}
